@@ -6,116 +6,85 @@ import time
 from datetime import date
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
-
 from Connection import handle_messages
 
-try:
-    # Initialize global variables
-    SERVER_ADDRESS = ""
-    SERVER_PORT = 0
-    username = ""
-
-    # Create a socket instance and connect to the server
-    socket_instance = socket.socket()
-    socket_instance.connect((SERVER_ADDRESS, SERVER_PORT))
-
-    # Start a thread to handle received messages
-    threading.Thread(target=handle_messages, args=[socket_instance]).start()
-
-    print('Connected to chat!')
-
-    while True:
-        msg = str(input("Digite a mensagem: "))
-        time_raw = time.localtime()
-        time_value = time.strftime("%H:%M:%S", time_raw)
-        today = date.today()
-        date_value = today.strftime("%d/%m/%Y")
-        payload = {
-            "username": username,
-            "message": msg,
-            "time": time_value,
-            "date": date_value,
-        }
-
-        if msg == 'fechar':
-            print("Saindo da sessao...")
-            break
-
-        payload = json.dumps(payload)
-
-        socket_instance.send(bytes(payload, 'utf-8'))
-
-    socket_instance.close()
-
-except Exception as erro:
-    print(f'Ocorreu um erro\n {erro}')
-    socket_instance.close()
-
-# Function to send a message
+# Funcao para enviar a mensagem
 def send_message():
     message = message_entry.get()
     if message:
-        time_raw = time.localtime()
-        time_value = time.strftime("%H:%M:%S", time_raw)
+        raw_time = time.localtime()
+        time_value = time.strftime("%H:%M:%S", raw_time)
         today = date.today()
         date_value = today.strftime("%d/%m/%Y")
+
+        # Cria o payload com o dicionario que carrega as variaveis
         payload = {
             "username": username,
             "message": message,
             "time": time_value,
             "date": date_value,
         }
+
+        # Serialize em Json
         payload = json.dumps(payload)
         try:
+            # Manda a mensagem pro servidor
             socket_instance.send(bytes(payload, 'utf-8'))
+
+            # Exibe na area de texto a mensagem enviada
             message_text.insert(tk.END, f'You > {message} \n {time_value} - {date_value}\n\n')
-            message_text.see(tk.END)  # Scroll to the end of the text
-        except Exception as e:
-            print(f'Error sending message: {e}')
-            messagebox.showerror("Error", "Failed to send message")
+            message_text.see(tk.END)
+        except Exception as error:
+            print(f'Error sending message: {error}')
+            messagebox.showerror("Erro", "Erro ao enviar a mensagem")
+
+    # Limpa o campo de escrever a mensagem
     message_entry.delete(0, tk.END)
 
-def clear_text():
-    message_text.delete(1.0, tk.END)  # Delete all text from the start to the end
 
-# Redirect stdout and stderr to display in the GUI
+# Funcao para limpar o historico de mensagens
+def clear_text():
+    message_text.delete(1.0, tk.END)
+
+
+# Redireciona textos do console para a area de texto
 class StdoutRedirector(object):
     def __init__(self, text_widget):
         self.text_widget = text_widget
 
     def write(self, message):
         self.text_widget.insert(tk.END, message)
-        self.text_widget.see(tk.END)  # Scroll to the end of the text
+        self.text_widget.see(tk.END)
 
-# Create a tkinter window
+
+# Configuracoes do Tkinter
+
+# Janela
 window = tk.Tk()
-window.title("Chat Client")
-window.resizable(False, False)  # This makes it non-resizable in both dimensions
+window.title("Chat")
+window.resizable(False, False)
 
-# Create a frame to contain the labels and entry widgets
+# Frame dos entrys e das labels
 input_frame = tk.Frame(window)
 input_frame.pack(pady=5)
 
-# Create labels and entry widgets for IP, Port, and Username with padding
-ip_label = tk.Label(input_frame, text="Server IP:")
+# Labels e entrys para as configuracoes de conexao com o server
+ip_label = tk.Label(input_frame, text="IP do Server:")
 ip_label.grid(row=0, column=0, padx=5, pady=2)
-
 ip_entry = tk.Entry(input_frame)
 ip_entry.grid(row=0, column=1, padx=5, pady=2)
 
-port_label = tk.Label(input_frame, text="Server Port:")
+port_label = tk.Label(input_frame, text="Porta do Servidor:")
 port_label.grid(row=1, column=0, padx=5, pady=2)
-
 port_entry = tk.Entry(input_frame)
 port_entry.grid(row=1, column=1, padx=5, pady=2)
 
-username_label = tk.Label(input_frame, text="Username:")
+username_label = tk.Label(input_frame, text="Usuario:")
 username_label.grid(row=2, column=0, padx=5, pady=2)
-
 username_entry = tk.Entry(input_frame)
 username_entry.grid(row=2, column=1, padx=5, pady=2)
 
-# Create a connect button with padding
+# Botao de conexao que realiza a tentativa de conexao com o server
 def connect():
     global SERVER_ADDRESS, SERVER_PORT, username, socket_instance
 
@@ -128,41 +97,42 @@ def connect():
         socket_instance.connect((SERVER_ADDRESS, SERVER_PORT))
         threading.Thread(target=handle_messages, args=[socket_instance]).start()
         connect_button.config(state=tk.DISABLED)
-        messagebox.showinfo("Connected", "Connected to chat server!")
-    except Exception as e:
-        print(f'Error connecting to server: {e}')
-        messagebox.showerror("Error", "Failed to connect to server")
+        messagebox.showinfo("Conectado", "Conectado ao servidor de mensagens")
+    except Exception as error:
+        print(f'Error connecting to server: {error}')
+        messagebox.showerror("Erro", "Falha na conexao com o servidor")
 
-connect_button = tk.Button(window, text="Connect", command=connect)
+
+connect_button = tk.Button(window, text="Conectar", command=connect)
 connect_button.pack(pady=10)
 
-# Create a scrolled text area for displaying messages with padding
+# Area de texto e o scrollbar
 message_text = scrolledtext.ScrolledText(window, wrap=tk.WORD, width=40, height=10)
 message_text.pack(padx=10, pady=5)
 
-# Create a label for the typing area
-message_label = tk.Label(window, text="Type your message:")
+# Label do texto de digitar
+message_label = tk.Label(window, text="Digite sua mensagem:")
 message_label.pack(side=tk.LEFT, padx=5)
 
-# Create an Entry widget for typing messages with padding
+# Entry para digitar a mensagem
 message_entry = tk.Entry(window, width=40)
 message_entry.pack(side=tk.LEFT, padx=5, pady=5)
 
-# Create a frame to contain the "Send" and "Clear" buttons side by side
+# Frame dos botoes
 button_frame = tk.Frame(window)
 button_frame.pack(pady=5)
 
-# Create a "Send" button with padding and pack it to the left
-send_button = tk.Button(button_frame, text="Send", command=send_message)
+# Botao de enviar mensagem
+send_button = tk.Button(button_frame, text="Enviar", command=send_message)
 send_button.pack(side=tk.LEFT, padx=5)
 
-# Create a "Clear" button with padding and pack it to the left
-clear_button = tk.Button(button_frame, text="Clear", command=clear_text)
+# Botao de limpar o texto
+clear_button = tk.Button(button_frame, text="Limpar", command=clear_text)
 clear_button.pack(side=tk.LEFT, padx=5)
 
-# Redirect stdout and stderr to display in the GUI
+# Redireciona mensagens de console para a area de texto
 sys.stdout = StdoutRedirector(message_text)
 sys.stderr = StdoutRedirector(message_text)
 
-# Start the tkinter main loop
+# Mantem a janela aberta em loop
 window.mainloop()
